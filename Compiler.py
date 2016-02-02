@@ -452,16 +452,16 @@ class Mainwindow:
         # region ###Weapon tab
         self.weaponcoll_basic = Collapse(self.weapontab.editingframe, text='Weapon Attributes', padding=(5, 5, 5, 0))
         self.weaponcoll_basic.grid(sticky=N+E+W+S)
-        nameentry = Tagentry(self.weaponcoll_basic, self.weapontab.treelist, 'name', 'Name', width=40)
-        self.weaponcoll_basic.add(nameentry, column=0, row=0)
+        self.weaponcoll_basic.add(Tagentry, sourcetree=self.weapontab.treelist, key='name', text='Name',
+                                  width=40, column=0, row=0)
         self.weaponcoll_basic.addfields(weapon_basiclist, weapon_basiclabels, self.weapontab.treelist)
         # endregion
 
         # region ###Armor tab
         self.armorcoll = Collapse(self.armortab.editingframe, text='Armor Statistics', padding=(5, 5, 5, 0))
         self.armorcoll.grid(sticky=N+E+W+S)
-        nameentry = Tagentry(self.armorcoll, self.armortab.treelist, 'name', 'Name', width=40)
-        self.armorcoll.add(nameentry, column=0, row=0)
+        self.armorcoll.add(Tagentry, sourcetree=self.armortab.treelist, key='name', text='Name', width=40, column=0,
+                           row=0)
         self.armorcoll.addfields(armor_list, armor_labels, self.armortab.treelist)
         # endregion
 
@@ -585,11 +585,11 @@ class Collapse(Frame):
     # followed by a list of tags.
     def addfields(self, tagset, namedict, sourcetree):
         for param in tagset[0]:
-            entry = Tagentry(self.subframe, sourcetree, param, text=namedict[param])
+            entry = Tagentry(self.subframe, sourcetree=sourcetree, key=param, text=namedict[param])
             self.subadd(entry)
         for tag in tagset[1]:
             if tag not in self.labellist:
-                entry = Tagbutton(self.subframe, sourcetree, tag, text=namedict[tag])
+                entry = Tagbutton(self.subframe, sourcetree=sourcetree, key=tag, text=namedict[tag])
                 self.subadd(entry)
 
     def update_items(self):
@@ -620,15 +620,17 @@ class Collapse(Frame):
             self.autolist.append(child)
             self.update_items()
 
-    def add(self, child, **kwargs):
-        if type(child).__name__ in ('Tagbutton', 'Tagentry'):
-            if child.key not in self.labellist:
-                self.itemlist.append(child)
-                self.labellist.append(child.key)
-                child.grid(in_=self.overframe, **kwargs)
+    def add(self, widget, **kwargs):
+        if widget in ('Tagbutton', 'Tagentry'):
+            if kwargs['key'] not in self.labellist:
+                child = widget(self.overframe, **kwargs)
+                self.itemlist.append(widget(child))
+                self.labellist.append(kwargs['key'])
+                child.grid()
         else:
-            child.grid(in_=self.overframe, **kwargs)
+            child = widget(self.overframe, **kwargs)
             self.itemlist.append(child)
+            child.grid()
 
 
 class Entitytab:
@@ -725,11 +727,12 @@ class Entitytab:
 
 class Tagbutton(Checkbutton):
 
-    def __init__(self, master, sourcetree, key, **kwargs):
+    def __init__(self, master, **kwargs):
         self.var = IntVar()
-        self.key = key
-        self.sourcetree = sourcetree
-        Checkbutton.__init__(self, master, variable=self.var, command=self.callback, padding=(5, 0), **kwargs)
+        self.key = kwargs['key']
+        self.sourcetree = kwargs['sourcetree']
+        Checkbutton.__init__(self, master, variable=self.var, command=self.callback, padding=(5, 0),
+                             text=kwargs['text'])
 
     def callback(self):
         cblist = [self.key, self.var.get()]
@@ -738,13 +741,17 @@ class Tagbutton(Checkbutton):
 
 class Tagentry(Frame):
 
-    def __init__(self, master, sourcetree, key, text='', width=12, **kwargs):
+    def __init__(self, master, **kwargs):
         self.var = StringVar()
-        self.key = key
-        self.sourcetree = sourcetree
+        self.key = kwargs['key']
+        self.sourcetree = kwargs['sourcetree']
+        if 'width' in kwargs:
+            self.width = kwargs['width']
+        else:
+            self.width = 12
         Frame.__init__(self, master, padding=(5, 0))
-        self.label = Label(self, text=text+': ')
-        self.entry = Entry(self, textvariable=self.var, width=width, **kwargs)
+        self.label = Label(self, text=kwargs['text']+': ')
+        self.entry = Entry(self, textvariable=self.var, width=self.width)
         self.label.grid(column=0, row=0, sticky=W)
         self.entry.grid(column=0, row=1, sticky=W)
         self.columnconfigure(1, weight=1)
