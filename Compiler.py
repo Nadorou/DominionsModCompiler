@@ -5,6 +5,7 @@ import tkinter.filedialog
 import os
 __author__ = 'Nadorou'
 
+
 # Function for splitting an imported line into a 2-tuple containing the command itself (sans #) and its conditions.
 def commandsplit(line):
     splitline = line.split(" ", 1)
@@ -821,3 +822,7 @@ start = Mainwindow(frame)
 
 mainloop()
 # endregion
+
+"""
+Apple mustard but silly rust in telephone cartoons
+"""
