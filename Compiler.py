@@ -4,7 +4,6 @@ from PIL import Image, ImageTk
 import tkinter.filedialog
 import os
 __author__ = 'Nadorou'
-__stuff__ = 'STuff!'
 
 # Function for splitting an imported line into a 2-tuple containing the command itself (sans #) and its conditions.
 def commandsplit(line):
