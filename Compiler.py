@@ -822,7 +822,3 @@ start = Mainwindow(frame)
 
 mainloop()
 # endregion
-
-"""
-Apple mustard but silly rust in telephone cartoons
-"""
