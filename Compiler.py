@@ -4,7 +4,7 @@ from PIL import Image, ImageTk
 import tkinter.filedialog
 import os
 __author__ = 'Nadorou'
-
+__stuff__ = 'STuff!'
 
 # Function for splitting an imported line into a 2-tuple containing the command itself (sans #) and its conditions.
 def commandsplit(line):
@@ -333,6 +333,7 @@ class Mainwindow:
     def __init__(self, master):
 
         # region Variables
+        # TODO Make default folder editable
         self.defaultdomfolder = 'C:/Users/Nadorou/AppData/Roaming/Dominions4/mods'
 
         self.modname = StringVar()
