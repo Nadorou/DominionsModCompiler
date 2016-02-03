@@ -65,6 +65,15 @@ def treeview_sort_column(tv, col, reverse=False, master=''):
         treeview_sort_column(tv, col, reverse, master=child)
 
 
+def setstate(widget, state):
+        try:
+            widget.configure(state=state)
+        except TclError:
+            pass
+        for child in widget.winfo_children():
+            setstate(child, state=state)
+
+
 # Mod class
 class Modentry:
 
@@ -271,10 +280,6 @@ class Weapon(Entity):
 
         return towrite
 
-    def tags(self):
-        for tag in self.misctags:
-            print(tag)
-
 
 # Armor subclass
 class Armor(Entity):
@@ -297,7 +302,6 @@ class Armor(Entity):
 
         if 'name' not in self.statdict:
             self.statdict['name'] = ''
-
 
 
 # Nametype subclass
@@ -458,8 +462,9 @@ class Mainwindow:
         self.weaponcoll_basic.grid(sticky=N+E+W+S)
         self.weaponcoll_basic.add(Tagentry, sourcetab=self.weapontab, key='name', text='Name',
                                   width=40, column=0, row=0)
+        self.weaponcoll_basic.add(Tagentry, sourcetab=self.weapontab, key='ID', text='Weapon ID', width=10)
         self.weaponcoll_basic.add(Tagchoice, sourcetab=self.weapontab, key='isnew',
-                                  text=['ID based on...', 'Modified existing weapon', 'New weapon entry'])
+                                  text=['ID based on...', 'Modified existing weapon', 'New weapon entry (700-1999)'])
         self.weaponcoll_basic.addfields(weapon_basiclist, weapon_labels, self.weapontab)
 
         self.weaponcoll_damage = Collapse(self.weapontab.editingframe, text='Damage Types', padding=(5, 0))
@@ -475,7 +480,7 @@ class Mainwindow:
         self.weaponcoll_immunities.grid(sticky=N+E+W+S)
         self.weaponcoll_immunities.addfields(weapon_immunelist, weapon_labels, self.weapontab)
 
-        self.weaponcoll_onlies = Collapse(self.weapontab.editingframe, text='Only hurts...', padding=(5, 0))
+        self.weaponcoll_onlies = Collapse(self.weapontab.editingframe, text='Only harms...', padding=(5, 0))
         self.weaponcoll_onlies.grid(sticky=N+E+W+S)
         self.weaponcoll_onlies.addfields(weapon_onlylist, weapon_labels, self.weapontab)
         # endregion
@@ -483,12 +488,20 @@ class Mainwindow:
         # region ###Armor tab
         self.armorcoll = Collapse(self.armortab.editingframe, text='Armor Statistics', padding=(5, 5, 5, 0))
         self.armorcoll.grid(sticky=N+E+W+S)
-        self.armorcoll.add(Tagentry, sourcetab=self.armortab, key='name', text='Name', width=40, column=0,
-                           row=0)
+        self.armorcoll.add(Tagentry, sourcetab=self.armortab, key='name', text='Name', width=40)
+        self.armorcoll.add(Tagentry, sourcetab=self.armortab, key='ID', text='Armor ID', width=10)
+        self.armorcoll.add(Tagchoice, sourcetab=self.armortab, key='isnew',
+                           text=['ID based on...', 'Modified existing armor', 'New armor entry (250-999)'])
         self.armorcoll.addfields(armor_list, armor_labels, self.armortab)
         # endregion
 
         # endregion
+        for tab in self.tabmanager.winfo_children():
+            try:
+                tab.editingframe.winfo_children()[0].toggle()
+            except AttributeError:
+                pass
+        setstate(self.tabmanager, DISABLED)
 
     def browsedm(self):
         targetdm = tkinter.filedialog.askopenfile(mode='r', filetypes=[('Dominions mod file', '.dm')], parent=root,
@@ -501,6 +514,7 @@ class Mainwindow:
             self.buildmod(newmod)
 
     def buildmod(self, mod):
+        setstate(self.tabmanager, NORMAL)
         self.modname.set(mod.modname)
         self.modversion.set(mod.version)
         self.domiversion.set(mod.domversion)
@@ -655,22 +669,22 @@ class Collapse(Frame):
             child.grid(sticky=W)
 
 
-class Entitytab:
+class Entitytab(Frame):
 
-    def __init__(self, master, label=None):
+    def __init__(self, master, label=None, **kwargs):
 
         self.moddict = {}
         self.editingentry = ''
 
-        self.mainframe = Frame(master)
-        master.add(self.mainframe, text=label)
+        Frame.__init__(self, master, **kwargs)
+        master.add(self, text=label)
 
         # region Treeview
-        self.treescrollbary = AutoScrollbar(self.mainframe, orient=VERTICAL)
-        self.treescrollbarx = AutoScrollbar(self.mainframe, orient=HORIZONTAL)
+        self.treescrollbary = AutoScrollbar(self, orient=VERTICAL)
+        self.treescrollbarx = AutoScrollbar(self, orient=HORIZONTAL)
 
         self.treelistcolumns = ['ID', 'Name']
-        self.treelist = Treeview(self.mainframe, selectmode='browse', columns=('ID', 'Name'), show='headings',
+        self.treelist = Treeview(self, selectmode='browse', columns=('ID', 'Name'), show='headings',
                                  height=22, xscrollcommand=self.treescrollbarx.set,
                                  yscrollcommand=self.treescrollbary.set)
 
@@ -691,21 +705,20 @@ class Entitytab:
         self.treelist.column('Name', anchor=W)
         # endregion
 
-        self.editingscrollbar = AutoScrollbar(self.mainframe, orient=VERTICAL)
-        self.editingcanvas = Canvas(self.mainframe, highlightthickness=0,
+        self.editingscrollbar = AutoScrollbar(self, orient=VERTICAL)
+        self.editingcanvas = Canvas(self, highlightthickness=0,
                                     yscrollcommand=self.editingscrollbar.set)
-        self.editingframe = Frame(self.mainframe, borderwidth=1)
+        self.editingframe = Frame(self, borderwidth=1)
         self.editingscrollbar.config(command=self.editingcanvas.yview)
 
         self.editingcanvas.grid(column=2, row=0, sticky=N+E+W+S)
         self.editingscrollbar.grid(column=3, row=0, sticky=N+S)
 
         self.editingcanvas.create_window((0, 0), window=self.editingframe, anchor='nw', tags='self.editingframe')
-        # self.editingframe.grid(column=0, row=0, in_=self.editingcanvas, sticky=N+E+W+S)
 
         self.editingframe.grid_columnconfigure(0, weight=1)
-        self.mainframe.grid_columnconfigure(2, weight=1)
-        self.mainframe.grid_rowconfigure(0, weight=1)
+        self.grid_columnconfigure(2, weight=1)
+        self.grid_rowconfigure(0, weight=1)
 
         self.treelist.bind('<Double-1>', self.onclick)
         self.editingcanvas.bind('<Configure>', self.onframeconfigure)
@@ -722,9 +735,12 @@ class Entitytab:
             self.treelist.insert('', 'end', self.moddict[key].statdict['ID'],
                                  values=[self.moddict[key].statdict['ID'], self.moddict[key].statdict['name']])
 
+        setstate(self.editingframe, DISABLED)
+
     def onclick(self, event):
         try:
             self.editingentry = self.treelist.selection()[0]
+            setstate(self.editingframe, NORMAL)
             for item in self.treelist.get_children():
                 self.treelist.item(item, values=[self.moddict[item].statdict['ID'],
                                                  self.moddict[item].statdict['name']])
@@ -735,12 +751,10 @@ class Entitytab:
             pass
 
     def onframeconfigure(self, event):
-        print("HELP I'M BEING RESIZED")
-        self.editingcanvas.itemconfig('self.editingframe', width=self.mainframe.grid_bbox(2, 0)[2])
+        self.editingcanvas.itemconfig('self.editingframe', width=self.grid_bbox(2, 0)[2])
         self.editingcanvas.configure(scrollregion=self.editingcanvas.bbox('self.editingframe'))
 
     def fillfield(self, field, item):
-        print(type(field).__name__)
         if type(field).__name__ == 'Tagbutton':
             if field.key in self.moddict[item].misctags:
                 field.var.set(1)
@@ -788,6 +802,9 @@ class Tagentry(Frame):
         self.columnconfigure(1, weight=1)
 
         self.var.trace('w', lambda name, index, mode, var=self.var: self.callback(var))
+
+        if 'state' in kwargs:
+            self.entry.config(state=kwargs['state'])
 
     def callback(self, var):
         sourceitem = self.sourcetab.moddict[self.sourcetab.editingentry]
@@ -863,7 +880,7 @@ weapon_onlytags = ['undeadonly', 'demononly', 'demonundead', 'sacredonly', 'dt_c
 weapon_onlylist = ('', weapon_onlytags)
 
 weapon_labels = {'selectweapon': 'ID', 'newweapon': 'ID', 'name': 'Name', 'dmg': 'Damage',
-                 'nratt': 'Number of attacks', 'att': 'Attack', 'def': 'Defense', 'len': 'Length',
+                 'nratt': '# of attacks', 'att': 'Attack', 'def': 'Defense', 'len': 'Length',
                  'range': 'Range', 'ammo': 'Ammo', 'rcost': 'Resource cost', 'sound': 'Sound',
                  'sample': 'Custom sound (filename)', 'twohanded': 'Two-handed', 'slash': 'Slashing',
                  'pierce': 'Piercing', 'blunt': 'Blunt', 'cold': 'Cold', 'fire': 'Fire', 'shock': 'Shock',
