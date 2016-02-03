@@ -216,14 +216,15 @@ class Monster(Entity):
         Entity.__init__(self, stats)
 
         self.name = ''
+        self.statdict['isnew'] = False
         for tag in self.statdict:
             if tag == 'newmonster':
                 self.ID = self.statdict['newmonster'].split(" ", 1)[0]
-                self.isnew = True
+                self.statdict['isnew'] = True
             elif tag == 'selectmonster':
                 self.statdict['selectmonster'] = self.statdict['selectmonster'].split(" ", 1)[0]
                 self.ID = self.statdict['selectmonster']
-                self.isnew = False
+                self.statdict['isnew'] = False
             elif tag == 'name':
                 self.statdict['name'] = self.statdict['name'].split('"', 2)[1]
                 self.name = self.statdict['name']
@@ -235,25 +236,22 @@ class Weapon(Entity):
     def __init__(self, stats):
         Entity.__init__(self, stats)
 
-        # region stats
         self.name = ''
-        self.soundiscustom = False
+        self.statdict['isnew'] = False
+        self.statdict['soundiscustom'] = False
         for tag in self.statdict:
             if tag == 'newweapon':
                 self.ID = self.statdict['newweapon'].split(" ", 1)[0]
-                self.isnew = True
+                self.statdict['isnew'] = True
             elif tag == 'selectweapon':
                 self.statdict['selectweapon'] = self.statdict['selectweapon'].split(" ", 1)[0]
                 self.ID = self.statdict['selectweapon']
-                self.isnew = False
+                self.statdict['isnew'] = False
             elif tag == 'name':
                 self.statdict['name'] = self.statdict['name'].split('"', 2)[1]
                 self.name = self.statdict['name']
             elif tag == 'sample':
-                self.soundiscustom = True
-
-
-        # endregion
+                self.statdict['soundiscustom'] = True
 
     def write(self):
         towrite = []
@@ -282,12 +280,13 @@ class Armor(Entity):
 
         # region stats
         self.name = ''
+        self.statdict['isnew'] = False
         for tag in self.statdict:
             if tag == 'newarmor':
-                self.isnew = True
+                self.statdict['isnew'] = True
                 self.ID = self.statdict['newarmor'].split(" ", 1)[0]
             elif tag == 'selectarmor':
-                self.isnew = False
+                self.statdict['isnew'] = False
                 self.statdict['selectarmor'] = self.statdict['selectarmor'].split(" ", 1)[0]
                 self.ID = self.statdict['selectarmor']
             elif tag == 'name':
@@ -455,7 +454,26 @@ class Mainwindow:
         self.weaponcoll_basic.grid(sticky=N+E+W+S)
         self.weaponcoll_basic.add(Tagentry, sourcetree=self.weapontab.treelist, key='name', text='Name',
                                   width=40, column=0, row=0)
-        self.weaponcoll_basic.addfields(weapon_basiclist, weapon_basiclabels, self.weapontab.treelist)
+        self.weaponcoll_basic.add(Tagchoice, sourcetree=self.weapontab.treelist, key='isnew',
+                                  text=['ID based on...', 'Modified existing weapon', 'New weapon entry'])
+        self.weaponcoll_basic.addfields(weapon_basiclist, weapon_labels, self.weapontab.treelist)
+
+        self.weaponcoll_damage = Collapse(self.weapontab.editingframe, text='Damage Types', padding=(5, 0))
+        self.weaponcoll_damage.grid(sticky=N+E+W+S)
+        self.weaponcoll_damage.addfields(weapon_damagelist, weapon_labels, self.weapontab.treelist)
+
+        self.weaponcoll_qualities = Collapse(self.weapontab.editingframe, text='Weapon Qualities', padding=(5, 0))
+        self.weaponcoll_qualities.grid(sticky=N+E+W+S)
+        self.weaponcoll_qualities.addfields(weapon_quallist, weapon_labels, self.weapontab.treelist)
+
+        self.weaponcoll_immunities = Collapse(self.weapontab.editingframe, text='Damage Immunities',
+                                              padding=(5, 0))
+        self.weaponcoll_immunities.grid(sticky=N+E+W+S)
+        self.weaponcoll_immunities.addfields(weapon_immunelist, weapon_labels, self.weapontab.treelist)
+
+        self.weaponcoll_onlies = Collapse(self.weapontab.editingframe, text='Only hurts...', padding=(5, 0))
+        self.weaponcoll_onlies.grid(sticky=N+E+W+S)
+        self.weaponcoll_onlies.addfields(weapon_onlylist, weapon_labels, self.weapontab.treelist)
         # endregion
 
         # region ###Armor tab
@@ -540,7 +558,7 @@ class Collapse(Frame):
         self.subframe = Frame(self.collapseframe)
 
         self.overframe.grid(column=0, row=0, sticky=N+E+W+S)
-        self.subframe.grid(column=0, row=1, sticky=N+E+W+S)
+        self.subframe.grid(column=0, row=1, sticky=N+E+W+S, ipady=5)
         self.button.bind('<Configure>', self.on_resizebutton)
 
     def toggle(self):
@@ -597,7 +615,7 @@ class Collapse(Frame):
         o = 0
         j = 0
         for item in self.autolist:
-            item.grid(column=o, row=j, in_=self.subframe, sticky=W)
+            item.grid(column=o, row=j, in_=self.subframe, sticky=W+S)
             o += 1
             if o >= self.columncount:
                 j += 1
@@ -631,7 +649,7 @@ class Collapse(Frame):
         else:
             child = widget(self.overframe, **kwargs)
             self.itemlist.append(child)
-            child.grid()
+            child.grid(sticky=W)
 
 
 class Entitytab:
@@ -719,7 +737,7 @@ class Entitytab:
                 field.var.set(1)
             else:
                 field.var.set(0)
-        elif type(field).__name__ == 'Tagentry':
+        elif type(field).__name__ in ('Tagentry', 'Tagchoice'):
             if field.key in self.moddict[item].statdict:
                 field.var.set(self.moddict[item].statdict[field.key])
             else:
@@ -749,12 +767,12 @@ class Tagentry(Frame):
         if 'width' in kwargs:
             self.width = kwargs['width']
         else:
-            self.width = 12
+            self.width = 14
         Frame.__init__(self, master, padding=(5, 0))
-        self.label = Label(self, text=kwargs['text']+': ')
+        self.label = Label(self, text=kwargs['text']+': ', width=self.width, wraplength=self.width*8-16)
         self.entry = Entry(self, textvariable=self.var, width=self.width)
-        self.label.grid(column=0, row=0, sticky=W)
-        self.entry.grid(column=0, row=1, sticky=W)
+        self.label.grid(column=0, row=0, sticky=W+S)
+        self.entry.grid(column=0, row=1, sticky=W+S)
         self.columnconfigure(1, weight=1)
 
         self.var.trace('w', lambda name, index, mode, var=self.var: self.callback(var))
@@ -763,12 +781,40 @@ class Tagentry(Frame):
         cblist = [self.key, var.get()]
         print(cblist)
 
+
+class Tagchoice(LabelFrame):
+
+    def __init__(self, master, **kwargs):
+        self.var = StringVar()
+        self.key = kwargs['key']
+        self.sourcetree = kwargs['sourcetree']
+        self.text_a = kwargs['text'][1]
+        self.text_b = kwargs['text'][2]
+        if 'values' in kwargs:
+            self.value_a = kwargs['values'][0]
+            self.value_b = kwargs['values'][1]
+        else:
+            self.value_a = ''
+            self.value_b = '1'
+        LabelFrame.__init__(self, master, text=kwargs['text'][0], padding=(5, 0, 5, 5))
+        self.button_a = Radiobutton(self, text=kwargs['text'][1], variable=self.var, value=self.value_a,
+                                    command=self.callback)
+        self.button_b = Radiobutton(self, text=kwargs['text'][2], variable=self.var, value=self.value_b,
+                                    command=self.callback)
+        self.button_a.grid(sticky=W)
+        self.button_b.grid(sticky=W)
+
+    def callback(self):
+        cblist = [self.key, self.var.get()]
+        print(cblist)
+
 # endregion
 
 
 # region Global variables
 
 # Tag reference groups for writing and building entries in GUI.
+# TODO Fill out tag references
 # region Monstertab
 monster_clearparams = ['copystats', 'copyspr']
 monster_cleartags = ['clear', 'clearweapons', 'cleararmor', 'clearmagic', 'clearspec']
@@ -784,17 +830,50 @@ monster_pretenderatts = ['pathcost', 'startdom', 'homerealm']
 # endregion
 
 # region Weapontab
-weapon_basicparams = ['selectweapon', 'newweapon', 'name', 'dmg', 'nratt', 'att', 'def', 'len', 'range', 'ammo',
+weapon_identifiers = ['selectweapon', 'newweapon', 'name']
+weapon_basicparams = ['dmg', 'nratt', 'att', 'def', 'len', 'range', 'ammo',
                       'rcost', 'sound', 'sample']
-weapon_basiclabels = {'selectweapon': 'ID', 'newweapon': 'ID', 'name': 'Name', 'dmg': 'Damage',
-                      'nratt': 'Number of attacks', 'att': 'Attack', 'def': 'Defense', 'len': 'Length',
-                      'range': 'Range', 'ammo': 'Ammo', 'rcost': 'Resource cost', 'sound': 'Sound',
-                      'sample': 'Custom sound (filename)', 'twohanded': 'Two-handed'}
-weapon_basiclist = (weapon_basicparams, ['twohanded'])
+weapon_basiclist = (weapon_basicparams, '')
+
+weapon_damagetags = ['slash', 'pierce', 'blunt', 'cold', 'fire', 'shock', 'magic', 'poison', 'acid', 'dt_normal']
+weapon_damagelist = ('', weapon_damagetags)
+
+weapon_qualtags = ['twohanded', 'armorpiercing', 'armornegating', 'nostr', 'dt_cap', 'dt_stun',
+                   'dt_sizestun', 'dt_paralyze', 'dt_poison', 'dt_holy', 'dt_demon', 'dt_magic', 'dt_small', 'dt_large',
+                   'dt_raise', 'dt_weakness', 'dt_drain', 'dt_weapondrain', 'dt_aff']
+weapon_quallist = ('', weapon_qualtags)
+
+weapon_immunetags = ['mrnegates', 'mrnegateseasily', 'hardmrneg', 'sizeresist', 'mind', 'undeadimmune',
+                     'inanimateimmune', 'flyingimmune', 'enemyimmune', 'friendlyimmune']
+weapon_immunelist = ('', weapon_immunetags)
+
+weapon_onlytags = ['undeadonly', 'demononly', 'demonundead', 'sacredonly', 'dt_constructonly']
+weapon_onlylist = ('', weapon_onlytags)
+
+weapon_labels = {'selectweapon': 'ID', 'newweapon': 'ID', 'name': 'Name', 'dmg': 'Damage',
+                 'nratt': 'Number of attacks', 'att': 'Attack', 'def': 'Defense', 'len': 'Length',
+                 'range': 'Range', 'ammo': 'Ammo', 'rcost': 'Resource cost', 'sound': 'Sound',
+                 'sample': 'Custom sound (filename)', 'twohanded': 'Two-handed', 'slash': 'Slashing',
+                 'pierce': 'Piercing', 'blunt': 'Blunt', 'cold': 'Cold', 'fire': 'Fire', 'shock': 'Shock',
+                 'magic': 'Magic', 'poison': 'Poison', 'acid': 'Acid', 'dt_normal': 'Normal',
+                 'armorpiercing': 'Armor piercing', 'armornegating': 'Armor negating', 'nostr': 'No STR bonus',
+                 'mrnegates': 'MR can negate damage', 'mrnegateseasily': 'MR can negate (easy)',
+                 'hardmrneg': 'MR can negate (hard)', 'sizeresist': 'Size-dependent resistance',
+                 'mind': 'Mindless', 'undeadimmune': 'Undead',
+                 'inanimateimmune': 'Inanimate', 'flyingimmune': 'Flying',
+                 'enemyimmune': 'Enemies', 'friendlyimmune': 'Friendlies',
+                 'undeadonly': 'Undead', 'sacredonly': 'Sacred', 'demononly': 'Demons',
+                 'demonundead': 'Demons/undead', 'dt_cap': 'Capped damage', 'dt_stun': 'Stun damage',
+                 'dt_sizestun': 'Stun damage + size resist', 'dt_paralyze': 'Paralyze damage',
+                 'dt_poison': 'Poison damage', 'dt_holy': 'Holy damage', 'dt_demon': 'Anti-demon',
+                 'dt_magic': 'Anti-magic', 'dt_small': 'Anti-smaller', 'dt_large': 'Anti-larger',
+                 'dt_constructonly': 'Lifeless/Constructs', 'dt_raise': 'Raises dead', 'dt_weakness': 'Strength drain',
+                 'dt_drain': 'Life-draining', 'dt_weapondrain': 'Capped life-drain', 'dt_aff': 'Causes affliction'}
 # endregion
 
 # region Armortab
-armor_params = ['name', 'type', 'prot', 'def', 'enc', 'rcost']
+armor_identifiers = ['name']
+armor_params = ['type', 'prot', 'def', 'enc', 'rcost']
 armor_labels = {'name': 'Name', 'type': 'Armor Type', 'prot': 'Protection', 'def': 'Defense', 'enc': 'Encumbrance',
                 'rcost': 'Resource Cost'}
 armor_list = (armor_params, '')
