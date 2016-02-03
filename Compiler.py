@@ -411,6 +411,10 @@ class Mainwindow:
         self.descboxscrollbar.config(command=self.descriptionbox.yview)
         self.pathentry = Entry(self.overviewtab, textvariable=self.loaddomfolder)
 
+        self.descriptionbox.bind('<MouseWheel>', lambda event, target=self.descriptionbox: onmousewheel(target, event))
+        self.descboxscrollbar.bind('<MouseWheel>', lambda event, target=self.descriptionbox: onmousewheel(target,
+                                                                                                          event))
+
         # ##Buttons
         self.checkicon = ImageTk.PhotoImage(checkicon)
         self.bannerbutton = Button(self.overviewtab, image=self.checkicon, command=self.updatebanner)
