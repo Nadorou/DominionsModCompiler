@@ -129,26 +129,26 @@ class Modentry:
         print('Finished reading .dm file.')
         dm.close()
 
-        # TODO Read raw data and create entries based on it.
         for key in self.rawsdict:
             self.buildentries(key)
 
         self.printstats()
 
+# TODO Add categories as I make them
     def buildentries(self, category):
         for raw in self.rawsdict[category]:
             if category == 'selectweapon':
                 entry = Weapon(raw)
-                self.weapons[entry.ID] = entry
+                self.weapons[entry.statdict['ID']] = entry
             elif category == 'selectnametype':
                 entry = Nametype(raw)
-                self.nametypes[entry.ID] = entry
+                self.nametypes[entry.statdict['ID']] = entry
             elif category == 'selectarmor':
                 entry = Armor(raw)
-                self.armors[entry.ID] = entry
+                self.armors[entry.statdict['ID']] = entry
             elif category == 'selectmonster':
                 entry = Monster(raw)
-                self.monsters[entry.ID] = entry
+                self.monsters[entry.statdict['ID']] = entry
             else:
                 print('Class for %s not yet built' % category)
 
@@ -215,19 +215,21 @@ class Monster(Entity):
 
         Entity.__init__(self, stats)
 
-        self.name = ''
+        self.statdict['ID'] = ''
         self.statdict['isnew'] = False
         for tag in self.statdict:
             if tag == 'newmonster':
-                self.ID = self.statdict['newmonster'].split(" ", 1)[0]
+                self.statdict['ID'] = self.statdict['newmonster'].split(" ", 1)[0]
                 self.statdict['isnew'] = True
             elif tag == 'selectmonster':
                 self.statdict['selectmonster'] = self.statdict['selectmonster'].split(" ", 1)[0]
-                self.ID = self.statdict['selectmonster']
+                self.statdict['ID'] = self.statdict['selectmonster']
                 self.statdict['isnew'] = False
             elif tag == 'name':
                 self.statdict['name'] = self.statdict['name'].split('"', 2)[1]
-                self.name = self.statdict['name']
+
+        if 'name' not in self.statdict:
+            self.statdict['name'] = ''
 
 
 # Weapon subclass
@@ -236,22 +238,24 @@ class Weapon(Entity):
     def __init__(self, stats):
         Entity.__init__(self, stats)
 
-        self.name = ''
+        self.statdict['ID'] = ''
         self.statdict['isnew'] = False
         self.statdict['soundiscustom'] = False
         for tag in self.statdict:
             if tag == 'newweapon':
-                self.ID = self.statdict['newweapon'].split(" ", 1)[0]
+                self.statdict['ID'] = self.statdict['newweapon'].split(" ", 1)[0]
                 self.statdict['isnew'] = True
             elif tag == 'selectweapon':
                 self.statdict['selectweapon'] = self.statdict['selectweapon'].split(" ", 1)[0]
-                self.ID = self.statdict['selectweapon']
+                self.statdict['ID'] = self.statdict['selectweapon']
                 self.statdict['isnew'] = False
             elif tag == 'name':
                 self.statdict['name'] = self.statdict['name'].split('"', 2)[1]
-                self.name = self.statdict['name']
             elif tag == 'sample':
                 self.statdict['soundiscustom'] = True
+
+        if 'name' not in self.statdict:
+            self.statdict['name'] = ''
 
     def write(self):
         towrite = []
@@ -278,21 +282,22 @@ class Armor(Entity):
     def __init__(self, stats):
         Entity.__init__(self, stats)
 
-        # region stats
-        self.name = ''
+        self.statdict['ID'] = ''
         self.statdict['isnew'] = False
         for tag in self.statdict:
             if tag == 'newarmor':
                 self.statdict['isnew'] = True
-                self.ID = self.statdict['newarmor'].split(" ", 1)[0]
+                self.statdict['ID'] = self.statdict['newarmor'].split(" ", 1)[0]
             elif tag == 'selectarmor':
                 self.statdict['isnew'] = False
                 self.statdict['selectarmor'] = self.statdict['selectarmor'].split(" ", 1)[0]
-                self.ID = self.statdict['selectarmor']
+                self.statdict['ID'] = self.statdict['selectarmor']
             elif tag == 'name':
                 self.statdict['name'] = self.statdict['name'].split('"', 2)[1]
-                self.name = self.statdict['name']
-        # endregion
+
+        if 'name' not in self.statdict:
+            self.statdict['name'] = ''
+
 
 
 # Nametype subclass
@@ -301,10 +306,10 @@ class Nametype(Entity):
     def __init__(self, stats):
 
         Entity.__init__(self, stats)
-        self.ID = self.statdict['selectnametype']
+        self.statdict['ID'] = self.statdict['selectnametype']
 
     def write(self):
-        towrite = ['#selectnametype %s' % self.ID]
+        towrite = ['#selectnametype %s' % self.statdict['ID']]
         self.appendparam('addname', towrite)
         towrite.append('#end')
 
@@ -318,7 +323,6 @@ class Nametype(Entity):
 # TODO          Armor
 # TODO          Monsters
 # TODO          Nametypes
-# TODO          Weapons
 # TODO          Spells
 # TODO          Magic items
 # TODO          Mercs
@@ -445,43 +449,43 @@ class Mainwindow:
 
         self.moncoll_clear = Collapse(self.monstertab.editingframe, text='Clear/Copy tags', padding=(5, 0))
         self.moncoll_clear.grid(sticky=N+E+W+S)
-        self.moncoll_clear.addfields(monster_clearlist, monster_clearlabels, self.monstertab.treelist)
+        self.moncoll_clear.addfields(monster_clearlist, monster_clearlabels, self.monstertab)
 
         # endregion
 
         # region ###Weapon tab
         self.weaponcoll_basic = Collapse(self.weapontab.editingframe, text='Weapon Attributes', padding=(5, 5, 5, 0))
         self.weaponcoll_basic.grid(sticky=N+E+W+S)
-        self.weaponcoll_basic.add(Tagentry, sourcetree=self.weapontab.treelist, key='name', text='Name',
+        self.weaponcoll_basic.add(Tagentry, sourcetab=self.weapontab, key='name', text='Name',
                                   width=40, column=0, row=0)
-        self.weaponcoll_basic.add(Tagchoice, sourcetree=self.weapontab.treelist, key='isnew',
+        self.weaponcoll_basic.add(Tagchoice, sourcetab=self.weapontab, key='isnew',
                                   text=['ID based on...', 'Modified existing weapon', 'New weapon entry'])
-        self.weaponcoll_basic.addfields(weapon_basiclist, weapon_labels, self.weapontab.treelist)
+        self.weaponcoll_basic.addfields(weapon_basiclist, weapon_labels, self.weapontab)
 
         self.weaponcoll_damage = Collapse(self.weapontab.editingframe, text='Damage Types', padding=(5, 0))
         self.weaponcoll_damage.grid(sticky=N+E+W+S)
-        self.weaponcoll_damage.addfields(weapon_damagelist, weapon_labels, self.weapontab.treelist)
+        self.weaponcoll_damage.addfields(weapon_damagelist, weapon_labels, self.weapontab)
 
         self.weaponcoll_qualities = Collapse(self.weapontab.editingframe, text='Weapon Qualities', padding=(5, 0))
         self.weaponcoll_qualities.grid(sticky=N+E+W+S)
-        self.weaponcoll_qualities.addfields(weapon_quallist, weapon_labels, self.weapontab.treelist)
+        self.weaponcoll_qualities.addfields(weapon_quallist, weapon_labels, self.weapontab)
 
         self.weaponcoll_immunities = Collapse(self.weapontab.editingframe, text='Damage Immunities',
                                               padding=(5, 0))
         self.weaponcoll_immunities.grid(sticky=N+E+W+S)
-        self.weaponcoll_immunities.addfields(weapon_immunelist, weapon_labels, self.weapontab.treelist)
+        self.weaponcoll_immunities.addfields(weapon_immunelist, weapon_labels, self.weapontab)
 
         self.weaponcoll_onlies = Collapse(self.weapontab.editingframe, text='Only hurts...', padding=(5, 0))
         self.weaponcoll_onlies.grid(sticky=N+E+W+S)
-        self.weaponcoll_onlies.addfields(weapon_onlylist, weapon_labels, self.weapontab.treelist)
+        self.weaponcoll_onlies.addfields(weapon_onlylist, weapon_labels, self.weapontab)
         # endregion
 
         # region ###Armor tab
         self.armorcoll = Collapse(self.armortab.editingframe, text='Armor Statistics', padding=(5, 5, 5, 0))
         self.armorcoll.grid(sticky=N+E+W+S)
-        self.armorcoll.add(Tagentry, sourcetree=self.armortab.treelist, key='name', text='Name', width=40, column=0,
+        self.armorcoll.add(Tagentry, sourcetab=self.armortab, key='name', text='Name', width=40, column=0,
                            row=0)
-        self.armorcoll.addfields(armor_list, armor_labels, self.armortab.treelist)
+        self.armorcoll.addfields(armor_list, armor_labels, self.armortab)
         # endregion
 
         # endregion
@@ -524,7 +528,6 @@ class AutoScrollbar(Scrollbar):
     # works if you use the grid geometry manager.
     def set(self, lo, hi):
         if float(lo) <= 0.0 and float(hi) >= 1.0:
-            # grid_remove is currently missing from Tkinter!
             self.tk.call("grid", "remove", self)
         else:
             self.grid()
@@ -602,13 +605,13 @@ class Collapse(Frame):
 
     # Adds tags + parameters to the specified master collapse. tagset should be a tuple containing a list of parameters
     # followed by a list of tags.
-    def addfields(self, tagset, namedict, sourcetree):
+    def addfields(self, tagset, namedict, sourcetab):
         for param in tagset[0]:
-            entry = Tagentry(self.subframe, sourcetree=sourcetree, key=param, text=namedict[param])
+            entry = Tagentry(self.subframe, sourcetab=sourcetab, key=param, text=namedict[param])
             self.subadd(entry)
         for tag in tagset[1]:
             if tag not in self.labellist:
-                entry = Tagbutton(self.subframe, sourcetree=sourcetree, key=tag, text=namedict[tag])
+                entry = Tagbutton(self.subframe, sourcetab=sourcetab, key=tag, text=namedict[tag])
                 self.subadd(entry)
 
     def update_items(self):
@@ -657,6 +660,7 @@ class Entitytab:
     def __init__(self, master, label=None):
 
         self.moddict = {}
+        self.editingentry = ''
 
         self.mainframe = Frame(master)
         master.add(self.mainframe, text=label)
@@ -705,6 +709,7 @@ class Entitytab:
 
         self.treelist.bind('<Double-1>', self.onclick)
         self.editingcanvas.bind('<Configure>', self.onframeconfigure)
+        self.editingframe.bind('<Configure>', self.onframeconfigure)
 
     def modload(self, itemdict):
 
@@ -714,19 +719,23 @@ class Entitytab:
         self.moddict = itemdict
 
         for key in itemdict:
-            self.treelist.insert('', 'end', self.moddict[key].ID, values=[self.moddict[key].ID, self.moddict[key].name])
+            self.treelist.insert('', 'end', self.moddict[key].statdict['ID'],
+                                 values=[self.moddict[key].statdict['ID'], self.moddict[key].statdict['name']])
 
     def onclick(self, event):
         try:
-            item = self.treelist.selection()[0]
-            print(item)
+            self.editingentry = self.treelist.selection()[0]
+            for item in self.treelist.get_children():
+                self.treelist.item(item, values=[self.moddict[item].statdict['ID'],
+                                                 self.moddict[item].statdict['name']])
             for collapse in self.editingframe.winfo_children():
                 for field in collapse.itemlist:
-                    self.fillfield(field, item)
+                    self.fillfield(field, self.editingentry)
         except IndexError:
             pass
 
     def onframeconfigure(self, event):
+        print("HELP I'M BEING RESIZED")
         self.editingcanvas.itemconfig('self.editingframe', width=self.mainframe.grid_bbox(2, 0)[2])
         self.editingcanvas.configure(scrollregion=self.editingcanvas.bbox('self.editingframe'))
 
@@ -749,13 +758,16 @@ class Tagbutton(Checkbutton):
     def __init__(self, master, **kwargs):
         self.var = IntVar()
         self.key = kwargs['key']
-        self.sourcetree = kwargs['sourcetree']
+        self.sourcetab = kwargs['sourcetab']
         Checkbutton.__init__(self, master, variable=self.var, command=self.callback, padding=(5, 0),
                              text=kwargs['text'])
 
     def callback(self):
-        cblist = [self.key, self.var.get()]
-        print(cblist, )
+        sourceitem = self.sourcetab.moddict[self.sourcetab.editingentry]
+        if self.var.get():
+            sourceitem.misctags.append(self.key)
+        else:
+            sourceitem.misctags.remove(self.key)
 
 
 class Tagentry(Frame):
@@ -763,7 +775,7 @@ class Tagentry(Frame):
     def __init__(self, master, **kwargs):
         self.var = StringVar()
         self.key = kwargs['key']
-        self.sourcetree = kwargs['sourcetree']
+        self.sourcetab = kwargs['sourcetab']
         if 'width' in kwargs:
             self.width = kwargs['width']
         else:
@@ -778,8 +790,8 @@ class Tagentry(Frame):
         self.var.trace('w', lambda name, index, mode, var=self.var: self.callback(var))
 
     def callback(self, var):
-        cblist = [self.key, var.get()]
-        print(cblist)
+        sourceitem = self.sourcetab.moddict[self.sourcetab.editingentry]
+        sourceitem.statdict[self.key] = var.get()
 
 
 class Tagchoice(LabelFrame):
@@ -787,7 +799,7 @@ class Tagchoice(LabelFrame):
     def __init__(self, master, **kwargs):
         self.var = StringVar()
         self.key = kwargs['key']
-        self.sourcetree = kwargs['sourcetree']
+        self.sourcetab = kwargs['sourcetab']
         self.text_a = kwargs['text'][1]
         self.text_b = kwargs['text'][2]
         if 'values' in kwargs:
@@ -863,7 +875,7 @@ weapon_labels = {'selectweapon': 'ID', 'newweapon': 'ID', 'name': 'Name', 'dmg':
                  'inanimateimmune': 'Inanimate', 'flyingimmune': 'Flying',
                  'enemyimmune': 'Enemies', 'friendlyimmune': 'Friendlies',
                  'undeadonly': 'Undead', 'sacredonly': 'Sacred', 'demononly': 'Demons',
-                 'demonundead': 'Demons/undead', 'dt_cap': 'Capped damage', 'dt_stun': 'Stun damage',
+                 'demonundead': 'Demons/Undead', 'dt_cap': 'Capped damage', 'dt_stun': 'Stun damage',
                  'dt_sizestun': 'Stun damage + size resist', 'dt_paralyze': 'Paralyze damage',
                  'dt_poison': 'Poison damage', 'dt_holy': 'Holy damage', 'dt_demon': 'Anti-demon',
                  'dt_magic': 'Anti-magic', 'dt_small': 'Anti-smaller', 'dt_large': 'Anti-larger',
@@ -872,7 +884,7 @@ weapon_labels = {'selectweapon': 'ID', 'newweapon': 'ID', 'name': 'Name', 'dmg':
 # endregion
 
 # region Armortab
-armor_identifiers = ['name']
+armor_identifiers = ['selectarmor', 'selectweapon', 'name']
 armor_params = ['type', 'prot', 'def', 'enc', 'rcost']
 armor_labels = {'name': 'Name', 'type': 'Armor Type', 'prot': 'Protection', 'def': 'Defense', 'enc': 'Encumbrance',
                 'rcost': 'Resource Cost'}
