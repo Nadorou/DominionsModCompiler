@@ -74,10 +74,18 @@ def setstate(widget, state):
             setstate(child, state=state)
 
 
-def onmousewheel(target, event):
-    print(target, event)
-    target.yview_scroll(-1*(int(event.delta/120)), "units")
+def scrollsetup(widget, target):
+    if type(widget).__name__ is not 'Tagtext':
+        try:
+            widget.bind('<MouseWheel>', lambda event: onmousewheel(target, event))
+        except TclError:
+            pass
+        for child in widget.winfo_children():
+            scrollsetup(child, target)
 
+
+def onmousewheel(target, event):
+    target.yview_scroll(-1*(int(event.delta/120)), "units")
 
 
 # Mod class
@@ -233,19 +241,18 @@ class Monster(Entity):
         self.statdict['ID'] = ''
         self.statdict['isnew'] = False
         for tag in self.statdict:
-            if tag == 'newmonster':
-                self.statdict['ID'] = self.statdict['newmonster'].split(" ", 1)[0]
-                self.statdict['isnew'] = True
-            elif tag == 'selectmonster':
-                self.statdict['selectmonster'] = self.statdict['selectmonster'].split(" ", 1)[0]
-                self.statdict['ID'] = self.statdict['selectmonster']
-                self.statdict['isnew'] = False
-            elif tag == 'name':
-                self.statdict['name'] = self.statdict['name'].split('"', 2)[1]
-            elif tag == 'spr1':
-                self.statdict['spr1'] = self.statdict['spr1'].split('"', 2)[1]
-            elif tag == 'spr2':
-                self.statdict['spr2'] = self.statdict['spr2'].split('"', 2)[1]
+            try:
+                if tag == 'newmonster':
+                    self.statdict['ID'] = self.statdict['newmonster'].split(" ", 1)[0]
+                    self.statdict['isnew'] = True
+                elif tag == 'selectmonster':
+                    self.statdict['selectmonster'] = self.statdict['selectmonster'].split(" ", 1)[0]
+                    self.statdict['ID'] = self.statdict['selectmonster']
+                    self.statdict['isnew'] = False
+                elif tag in ('name', 'spr1', 'spr2', 'descr'):
+                    self.statdict[tag] = self.statdict[tag].split('"', 2)[1]
+            except IndexError:
+                pass
 
         if 'name' not in self.statdict:
             self.statdict['name'] = ''
@@ -436,10 +443,10 @@ class Mainwindow:
 
         # #Draw
         # ##Frames and canvas
-        self.bannerframe.grid(row=0, column=2, rowspan=3, columnspan=4, padx=5, sticky=W+S)
+        self.bannerframe.grid(row=0, column=2, rowspan=3, columnspan=4, padx=5, sticky=E+S)
         self.bannercanvas.pack()
         # ##Labels
-        self.bannerlabel.grid(row=3, column=2, padx=5, pady=5, sticky=W+S)
+        self.bannerlabel.grid(row=3, column=2, columnspan=4, padx=5, pady=5, sticky=W+S)
         self.modnamelabel.grid(row=0, column=0, padx=5, pady=5, sticky=N+W+S)
         self.versionlabel.grid(row=2, column=0, padx=5, pady=5, sticky=W)
         self.domiversionlabel.grid(row=3, column=0, padx=5, pady=5, sticky=W)
@@ -459,29 +466,42 @@ class Mainwindow:
         self.pathconfirmbutton.grid(row=8, column=5, padx=(0, 5), pady=(0, 5), sticky=W)
         # endregion
 
+        self.overviewtab.grid_columnconfigure(2, weight=1)
+
         # region ###Monster tab
+        # region Info/Appearance
         self.moncoll_info = Collapse(self.monstertab.editingframe, text='Information/Appearance', padding=(5, 5, 5, 0))
         self.moncoll_info.grid(sticky=N+E+W+S)
-        self.moncoll_info.add(Tagentry, sourcetab=self.monstertab, key='name', text='Name', width=25, row=0)
-        self.moncoll_info.add(Tagentry, sourcetab=self.monstertab, key='ID', text='Monster ID', width=10, row=1)
-        self.moncoll_info.add(Tagchoice, sourcetab=self.monstertab, key='isnew', row=2,
+        self.moncoll_info.add(Tagentry, sourcetab=self.monstertab, key='name', text='Name', width=25, row=0, columnspan=2)
+        self.moncoll_info.add(Tagentry, sourcetab=self.monstertab, key='fixedname', text='Fixed name (include quotes)', width=25, row=1, columnspan=2)
+        self.moncoll_info.add(Tagentry, sourcetab=self.monstertab, key='ID', text='Monster ID', width=10, row=2)
+        self.moncoll_info.add(Tagchoice, sourcetab=self.monstertab, key='isnew', row=3, columnspan=3,
                               text=['ID based on...', 'Modified existing monster', 'New monster entry (3001-6999)'],)
-        self.moncoll_info.add(Tagentry, sourcetab=self.monstertab, key='spr1', text='Sprite 1 path', width=60, row=3)
-        self.moncoll_info.add(Tagentry, sourcetab=self.monstertab, key='spr2', text='Sprite 2 path', width=60, row=4)
+        self.moncoll_info.add(Tagentry, sourcetab=self.monstertab, key='spr1', text='Sprite 1 path', width=58, row=4, columnspan=3)
+        self.moncoll_info.add(Tagentry, sourcetab=self.monstertab, key='spr2', text='Sprite 2 path', width=58, row=5, columnspan=3)
 
         self.spriteframe = LabelFrame(self.moncoll_info.overframe, text='Sprites (click to update)')
-        self.spriteframe.grid(column=0, row=0, columnspan=3, rowspan=2, sticky=E)
+        self.spriteframe.grid(column=2, row=0, rowspan=2, sticky=W)
         self.spritebutton = Button(self.spriteframe, image=self.monstersprite, command=self.updatesprites,
                                    text='Click to update', width=128)
         self.spritebutton.grid(column=0, row=0)
 
-        self.moncoll_basicatt = Collapse(self.monstertab.editingframe, text='Basic Attributes', padding=(5, 0))
-        self.moncoll_basicatt.grid(sticky=N+E+W+S)
+        self.moncoll_info.add(Tagtext, sourcetab=self.monstertab, key='descr', text='Description', row=6, columnspan=3)
+        self.moncoll_info.add(Tagentry, sourcetab=self.monstertab, key='speciallook', text='Particle effect aura (1-3)', row=7, columnspan=2)
+        # endregion
 
+        # region Cleartags
         self.moncoll_clear = Collapse(self.monstertab.editingframe, text='Clear/Copy tags', padding=(5, 0))
         self.moncoll_clear.grid(sticky=N+E+W+S)
         self.moncoll_clear.addfields(monster_clearlist, monster_labels, self.monstertab)
+        # endregion
 
+        # region Base attributes
+        self.moncoll_basicatt = Collapse(self.monstertab.editingframe, text='Basic Attributes', padding=(5, 0))
+        self.moncoll_basicatt.grid(sticky=N+E+W+S)
+
+        self.moncoll_basicatt.addfields(monster_baselist, monster_labels, self.monstertab)
+        # endregion
         # endregion
 
         # region ###Weapon tab
@@ -510,6 +530,18 @@ class Mainwindow:
         self.weaponcoll_onlies = Collapse(self.weapontab.editingframe, text='Only harms...', padding=(5, 0))
         self.weaponcoll_onlies.grid(sticky=N+E+W+S)
         self.weaponcoll_onlies.addfields(weapon_onlylist, weapon_labels, self.weapontab)
+
+        self.weaponcoll_misc = Collapse(self.weapontab.editingframe, text='Miscellaneous', padding=(5, 0))
+        self.weaponcoll_misc.grid(sticky=N+E+W+S)
+        self.weaponcoll_misc.add(Tagentry, sourcetab=self.weapontab, key='secondaryeffect', width=20,
+                                 text='Secondary effect #')
+        self.weaponcoll_misc.add(Tagentry, sourcetab=self.weapontab, key='secondaryeffectalways', width=20,
+                                 text='Guaranteed secondary effect #')
+        self.weaponcoll_misc.add(Tagentry, sourcetab=self.weapontab, key='flyspr', width=40,
+                                 text='Projectile appearance (flyspr and animation length)')
+        self.weaponcoll_misc.add(Tagentry, sourcetab=self.weapontab, key='explspr', width=40,
+                                 text='Projectile on-hit particle effect #')
+        self.weaponcoll_misc.addfields(weapon_misclist, weapon_labels, self.weapontab)
         # endregion
 
         # region ###Armor tab
@@ -526,6 +558,7 @@ class Mainwindow:
         for tab in self.tabmanager.winfo_children():
             try:
                 tab.editingframe.winfo_children()[0].toggle()
+                scrollsetup(tab.editingframe, tab.editingcanvas)
             except AttributeError:
                 pass
         setstate(self.tabmanager, DISABLED)
@@ -670,8 +703,9 @@ class Collapse(Frame):
     # followed by a list of tags.
     def addfields(self, tagset, namedict, sourcetab):
         for param in tagset[0]:
-            entry = Tagentry(self.subframe, sourcetab=sourcetab, key=param, text=namedict[param])
-            self.subadd(entry)
+            if param not in self.labellist:
+                entry = Tagentry(self.subframe, sourcetab=sourcetab, key=param, text=namedict[param])
+                self.subadd(entry)
         for tag in tagset[1]:
             if tag not in self.labellist:
                 entry = Tagbutton(self.subframe, sourcetab=sourcetab, key=tag, text=namedict[tag])
@@ -722,12 +756,12 @@ class Collapse(Frame):
             rowspan = kwargs['rowspan']
         else:
             rowspan = 1
-        if widget in ('Tagbutton', 'Tagentry'):
+        if widget in (Tagbutton, Tagentry, Tagtext):
             if kwargs['key'] not in self.labellist:
                 child = widget(self.overframe, **kwargs)
-                self.itemlist.append(widget(child))
+                self.itemlist.append(child)
                 self.labellist.append(kwargs['key'])
-                child.grid(column=column, row=row, columnspan=columnspan, rowspan=rowspan)
+                child.grid(column=column, row=row, columnspan=columnspan, rowspan=rowspan, sticky=N+E+S+W)
         else:
             child = widget(self.overframe, **kwargs)
             self.itemlist.append(child)
@@ -783,6 +817,7 @@ class Entitytab(Frame):
         self.editingcanvas.create_window((0, 0), window=self.editingframe, anchor='nw', tags='self.editingframe')
 
         self.editingframe.grid_columnconfigure(0, weight=1)
+        self.grid_columnconfigure(0, weight=1)
         self.grid_columnconfigure(2, weight=1)
         self.grid_rowconfigure(0, weight=1)
 
@@ -833,7 +868,7 @@ class Entitytab(Frame):
                 field.var.set(1)
             else:
                 field.var.set(0)
-        elif type(field).__name__ in ('Tagentry', 'Tagchoice'):
+        elif type(field).__name__ in ('Tagentry', 'Tagchoice', 'Tagtext'):
             if field.key in self.moddict[item].statdict:
                 field.var.set(self.moddict[item].statdict[field.key])
             else:
@@ -868,7 +903,7 @@ class Tagentry(Frame):
         else:
             self.width = 14
         Frame.__init__(self, master, padding=(5, 0))
-        self.label = Label(self, text=kwargs['text']+': ', width=self.width, wraplength=self.width*8-16)
+        self.label = Label(self, text=kwargs['text']+': ', width=self.width, wraplength=self.width*7-16)
         self.entry = Entry(self, textvariable=self.var, width=self.width)
         self.label.grid(column=0, row=0, sticky=W+S)
         self.entry.grid(column=0, row=1, sticky=W+S)
@@ -910,6 +945,46 @@ class Tagchoice(LabelFrame):
         cblist = [self.key, self.var.get()]
         print(cblist)
 
+
+class Tagtext(Frame):
+
+    def __init__(self, master, **kwargs):
+        self.var = StringVar()
+        self.key = kwargs['key']
+        self.sourcetab = kwargs['sourcetab']
+        Frame.__init__(self, master, padding=5)
+        self.label = Label(self, text=kwargs['text']+':', anchor=W)
+        self.label.grid(column=0, row=0, sticky=W+E)
+        self.scrollbar = AutoScrollbar(self)
+        self.text = Text(self, height=5, width=0, yscrollcommand=self.scrollbar.set, wrap=WORD, undo=1)
+        self.scrollbar.config(command=self.text.yview)
+        self.text.grid(column=0, row=1, sticky=N+E+W+S)
+        self.scrollbar.grid(column=1, row=1, sticky=N+S)
+
+        self.grid_columnconfigure(0, weight=1)
+
+        self.var_modified()
+        self._text_trace = self.text.bind('<<Modified>>', self.callback)
+        self._var_trace = self.var.trace('w', self.var_modified)
+        self.scrollbar.bind('<MouseWheel>', lambda event, target=self.text: onmousewheel(target, event))
+
+    def callback(self, event):
+        sourceitem = self.sourcetab.moddict[self.sourcetab.editingentry]
+        self.var.trace_vdelete('w', self._var_trace)
+        self.text.unbind('<<Modified>>')
+        self.var.set(self.text.get(1.0, END))
+        sourceitem.statdict[self.key] = self.var.get().replace('\n', '')
+        self._var_trace = self.var.trace('w', self.var_modified)
+        self._text_trace = self.text.bind('<<Modified>>', self.callback)
+        self.text.edit_modified(False)
+
+    def var_modified(self, *args):
+        self.text.unbind('<<Modified>>')
+        self.text.delete(1.0, END)
+        self._text_trace = self.text.bind('<<Modified>>', self.callback)
+        self.text.insert(END, self.var.get())
+        self.text.edit_modified(False)
+
 # endregion
 
 
@@ -927,18 +1002,18 @@ monster_cleartags = ['clear', 'clearweapons', 'cleararmor', 'clearmagic', 'clear
 monster_clearlist = (monster_clearparams, monster_cleartags)
 
 monster_baseatts = ['hp', 'size', 'ressize', 'prot', 'mr', 'mor', 'str', 'att', 'def', 'prec', 'enc',
-                    'mapmove', 'ap', 'eyes']
-monster_baselist = (monster_baseatts, None)
+                    'mapmove', 'ap', 'eyes', 'voidsanity']
+monster_baselist = (monster_baseatts, '')
 
 monster_pretenderatts = ['pathcost', 'startdom', 'homerealm']
 
-monster_labels = {'selectmonster': 'ID', 'newmonster': 'ID', 'name': 'Name', 'descr': 'Description', 'clear': 'Clear all',
-                  'clearweapons': 'Clear weapons', 'cleararmor': 'Clear armor', 'clearmagic': 'Clear magic',
-                  'clearspec': 'Clear special abilities', 'copystats': 'Copy stats from monster ID',
-                  'copyspr': 'Copy sprite from monster ID', 'hp': 'HP', 'size': 'Size', 'ressize': 'Resource size',
-                  'prot': 'Protection', 'mr': 'Magic resistance', 'mor': 'Morale', 'str': 'Strength', 'att': 'Attack',
-                  'def': 'Defense', 'prec': 'Precision', 'enc': 'Encumbrance', 'mapmove': 'Map movement',
-                  'ap': 'Action points', 'eyes': '# of eyes'}
+monster_labels = {'selectmonster': 'ID', 'newmonster': 'ID', 'name': 'Name', 'descr': 'Description',
+                  'clear': 'Clear all', 'clearweapons': 'Clear weapons', 'cleararmor': 'Clear armor',
+                  'clearmagic': 'Clear magic', 'clearspec': 'Clear special abilities',
+                  'copystats': 'Copy stats from monster ID', 'copyspr': 'Copy sprite from monster ID', 'hp': 'HP',
+                  'size': 'Size', 'ressize': 'Resource size', 'prot': 'Protection', 'mr': 'Magic resistance',
+                  'mor': 'Morale', 'str': 'Strength', 'att': 'Attack', 'def': 'Defense', 'prec': 'Precision',
+                  'enc': 'Encumbrance', 'mapmove': 'Map movement', 'ap': 'Action points', 'eyes': '# of eyes', 'voidsanity': 'Void sanity'}
 # endregion
 
 # region Weapontab
@@ -952,7 +1027,8 @@ weapon_damagelist = ('', weapon_damagetags)
 
 weapon_qualtags = ['twohanded', 'armorpiercing', 'armornegating', 'nostr', 'dt_cap', 'dt_stun',
                    'dt_sizestun', 'dt_paralyze', 'dt_poison', 'dt_holy', 'dt_demon', 'dt_magic', 'dt_small', 'dt_large',
-                   'dt_raise', 'dt_weakness', 'dt_drain', 'dt_weapondrain', 'dt_aff']
+                   'dt_raise', 'dt_weakness', 'dt_drain', 'dt_weapondrain', 'dt_aff', 'bonus', 'iron', 'wood', 'ice',
+                   'charge', 'flail', 'norepel', 'unrepel', 'beam', 'uwok', 'nouw']
 weapon_quallist = ('', weapon_qualtags)
 
 weapon_immunetags = ['mrnegates', 'mrnegateseasily', 'hardmrneg', 'sizeresist', 'mind', 'undeadimmune',
@@ -961,6 +1037,10 @@ weapon_immunelist = ('', weapon_immunetags)
 
 weapon_onlytags = ['undeadonly', 'demononly', 'demonundead', 'sacredonly', 'dt_constructonly']
 weapon_onlylist = ('', weapon_onlytags)
+
+weapon_miscparams = ['secondaryeffect', 'secondaryeffectalways', 'flyspr', 'explspr']
+weapon_misctags = ['range050', 'range0', 'melee50', 'skip', 'skip2']
+weapon_misclist = (weapon_miscparams, weapon_misctags)
 
 weapon_labels = {'selectweapon': 'ID', 'newweapon': 'ID', 'name': 'Name', 'dmg': 'Damage',
                  'nratt': '# of attacks', 'att': 'Attack', 'def': 'Defense', 'len': 'Length',
@@ -980,7 +1060,15 @@ weapon_labels = {'selectweapon': 'ID', 'newweapon': 'ID', 'name': 'Name', 'dmg':
                  'dt_poison': 'Poison damage', 'dt_holy': 'Holy damage', 'dt_demon': 'Anti-demon',
                  'dt_magic': 'Anti-magic', 'dt_small': 'Anti-smaller', 'dt_large': 'Anti-larger',
                  'dt_constructonly': 'Lifeless/Constructs', 'dt_raise': 'Raises dead', 'dt_weakness': 'Strength drain',
-                 'dt_drain': 'Life-draining', 'dt_weapondrain': 'Capped life-drain', 'dt_aff': 'Causes affliction'}
+                 'dt_drain': 'Life-draining', 'dt_weapondrain': 'Capped life-drain', 'dt_aff': 'Causes affliction',
+                 'bonus': 'Intrinsic weapon', 'iron': 'Iron weapon', 'wood': 'Wooden weapon', 'ice': 'Ice weapon',
+                 'charge': 'Charge bonus', 'flail': 'Flail', 'norepel': "Can't repel", 'unrepel': "Can't be repelled",
+                 'beam': 'Beam weapon', 'uwok': 'Can shoot underwater', 'nouw': "Can't shoot underwater",
+                 'secondaryeffect': 'Secondary effect #', 'secondaryeffectalways': 'Guaranteed secondary effect #',
+                 'flyspr': 'Projectile appearance (number + animation length)',
+                 'explspr': 'Projectile particle effect #', 'range050': 'Ranged weapon: 50 % chance of using in melee',
+                 'range0': 'Ranged weapon: Can be used in melee', 'melee50': 'Melee weapon: 50 % chance of being used',
+                 'skip': 'Skip next weapon on use', 'skip2': 'Skip next two weapons on use'}
 # endregion
 
 # region Armortab
