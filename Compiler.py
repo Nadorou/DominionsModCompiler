@@ -236,6 +236,10 @@ class Monster(Entity):
                 self.statdict['isnew'] = False
             elif tag == 'name':
                 self.statdict['name'] = self.statdict['name'].split('"', 2)[1]
+            elif tag == 'spr1':
+                self.statdict['spr1'] = self.statdict['spr1'].split('"', 2)[1]
+            elif tag == 'spr2':
+                self.statdict['spr2'] = self.statdict['spr2'].split('"', 2)[1]
 
         if 'name' not in self.statdict:
             self.statdict['name'] = ''
@@ -352,6 +356,7 @@ class Mainwindow:
 
         # Variables to be filled
         self.bannerphoto = None
+        self.monstersprite = ImageTk.PhotoImage(Image.new('RGBA', (128, 64)))
         # endregion
 
         # region Main frames
@@ -447,13 +452,25 @@ class Mainwindow:
         # region ###Monster tab
         self.moncoll_info = Collapse(self.monstertab.editingframe, text='Information/Appearance', padding=(5, 5, 5, 0))
         self.moncoll_info.grid(sticky=N+E+W+S)
+        self.moncoll_info.add(Tagentry, sourcetab=self.monstertab, key='name', text='Name', width=25, row=0)
+        self.moncoll_info.add(Tagentry, sourcetab=self.monstertab, key='ID', text='Monster ID', width=10, row=1)
+        self.moncoll_info.add(Tagchoice, sourcetab=self.monstertab, key='isnew', row=2,
+                              text=['ID based on...', 'Modified existing monster', 'New monster entry (3001-6999)'],)
+        self.moncoll_info.add(Tagentry, sourcetab=self.monstertab, key='spr1', text='Sprite 1 path', width=60, row=3)
+        self.moncoll_info.add(Tagentry, sourcetab=self.monstertab, key='spr2', text='Sprite 2 path', width=60, row=4)
+
+        self.spriteframe = LabelFrame(self.moncoll_info.overframe, text='Sprites (click to update)')
+        self.spriteframe.grid(column=0, row=0, columnspan=3, rowspan=2, sticky=E)
+        self.spritebutton = Button(self.spriteframe, image=self.monstersprite, command=self.updatesprites,
+                                   text='Click to update', width=128)
+        self.spritebutton.grid(column=0, row=0)
 
         self.moncoll_basicatt = Collapse(self.monstertab.editingframe, text='Basic Attributes', padding=(5, 0))
         self.moncoll_basicatt.grid(sticky=N+E+W+S)
 
         self.moncoll_clear = Collapse(self.monstertab.editingframe, text='Clear/Copy tags', padding=(5, 0))
         self.moncoll_clear.grid(sticky=N+E+W+S)
-        self.moncoll_clear.addfields(monster_clearlist, monster_clearlabels, self.monstertab)
+        self.moncoll_clear.addfields(monster_clearlist, monster_labels, self.monstertab)
 
         # endregion
 
@@ -461,7 +478,7 @@ class Mainwindow:
         self.weaponcoll_basic = Collapse(self.weapontab.editingframe, text='Weapon Attributes', padding=(5, 5, 5, 0))
         self.weaponcoll_basic.grid(sticky=N+E+W+S)
         self.weaponcoll_basic.add(Tagentry, sourcetab=self.weapontab, key='name', text='Name',
-                                  width=40, column=0, row=0)
+                                  width=40)
         self.weaponcoll_basic.add(Tagentry, sourcetab=self.weapontab, key='ID', text='Weapon ID', width=10)
         self.weaponcoll_basic.add(Tagchoice, sourcetab=self.weapontab, key='isnew',
                                   text=['ID based on...', 'Modified existing weapon', 'New weapon entry (700-1999)'])
@@ -536,6 +553,27 @@ class Mainwindow:
         except (PermissionError, FileNotFoundError, OSError):
             self.bannercanvas.delete(ALL)
 
+    def updatesprites(self):
+        combosprite = Image.new('RGBA', (124, 64))
+        for spr in ('spr1', 'spr2'):
+            try:
+                path = (self.monstertab.moddict[self.monstertab.editingentry]).statdict[spr]
+                sprite = Image.open(self.loaddomfolder.get() + path)
+                sizeratio = sprite.width/sprite.height
+                if sizeratio >= 1:
+                    sprite = sprite.resize((64, int(64/sizeratio)), resample=Image.NEAREST)
+                else:
+                    sprite = sprite.resize((int(64*sizeratio), 64), resample=Image.NEAREST)
+                if spr == 'spr1':
+                    combosprite.paste(sprite, box=(32-int(sprite.width/2), 32-int(sprite.height/2)))
+                else:
+                    combosprite.paste(sprite, box=(96-int(sprite.width/2), 32-int(sprite.height/2)))
+            except (PermissionError, FileNotFoundError, OSError):
+                    pass
+
+        self.monstersprite = ImageTk.PhotoImage(combosprite)
+        self.spritebutton.config(image=self.monstersprite)
+
 
 class AutoScrollbar(Scrollbar):
     # a scrollbar that hides itself if it's not needed.  only
@@ -575,6 +613,7 @@ class Collapse(Frame):
         self.subframe = Frame(self.collapseframe)
 
         self.overframe.grid(column=0, row=0, sticky=N+E+W+S)
+        self.overframe.grid_columnconfigure(1, weight=1)
         self.subframe.grid(column=0, row=1, sticky=N+E+W+S, ipady=5)
         self.button.bind('<Configure>', self.on_resizebutton)
 
@@ -657,16 +696,32 @@ class Collapse(Frame):
             self.update_items()
 
     def add(self, widget, **kwargs):
+        if 'column' in kwargs:
+            column = kwargs['column']
+        else:
+            column = 0
+        if 'row' in kwargs:
+            row = kwargs['row']
+        else:
+            row = self.overframe.grid_size()[1]+1
+        if 'columnspan' in kwargs:
+            columnspan = kwargs['columnspan']
+        else:
+            columnspan = 1
+        if 'rowspan' in kwargs:
+            rowspan = kwargs['rowspan']
+        else:
+            rowspan = 1
         if widget in ('Tagbutton', 'Tagentry'):
             if kwargs['key'] not in self.labellist:
                 child = widget(self.overframe, **kwargs)
                 self.itemlist.append(widget(child))
                 self.labellist.append(kwargs['key'])
-                child.grid()
+                child.grid(column=column, row=row, columnspan=columnspan, rowspan=rowspan)
         else:
             child = widget(self.overframe, **kwargs)
             self.itemlist.append(child)
-            child.grid(sticky=W)
+            child.grid(column=column, row=row, columnspan=columnspan, rowspan=rowspan, sticky=W)
 
 
 class Entitytab(Frame):
@@ -675,6 +730,7 @@ class Entitytab(Frame):
 
         self.moddict = {}
         self.editingentry = ''
+        self.name = label
 
         Frame.__init__(self, master, **kwargs)
         master.add(self, text=label)
@@ -741,12 +797,15 @@ class Entitytab(Frame):
         try:
             self.editingentry = self.treelist.selection()[0]
             setstate(self.editingframe, NORMAL)
+            self.winfo_parent()
             for item in self.treelist.get_children():
                 self.treelist.item(item, values=[self.moddict[item].statdict['ID'],
                                                  self.moddict[item].statdict['name']])
             for collapse in self.editingframe.winfo_children():
                 for field in collapse.itemlist:
                     self.fillfield(field, self.editingentry)
+            if self.name == 'Monsters':
+                start.updatesprites()
         except IndexError:
             pass
 
@@ -823,8 +882,8 @@ class Tagchoice(LabelFrame):
             self.value_a = kwargs['values'][0]
             self.value_b = kwargs['values'][1]
         else:
-            self.value_a = ''
-            self.value_b = '1'
+            self.value_a = False
+            self.value_b = True
         LabelFrame.__init__(self, master, text=kwargs['text'][0], padding=(5, 0, 5, 5))
         self.button_a = Radiobutton(self, text=kwargs['text'][1], variable=self.var, value=self.value_a,
                                     command=self.callback)
@@ -841,21 +900,31 @@ class Tagchoice(LabelFrame):
 
 
 # region Global variables
+activemod = None
 
 # Tag reference groups for writing and building entries in GUI.
 # TODO Fill out tag references
 # region Monstertab
+monster_identifiers = ['selectmonster', 'newmonster', 'name', 'descr']
+monster_visuals = ['spr1', 'spr2', 'speciallook']
+
 monster_clearparams = ['copystats', 'copyspr']
 monster_cleartags = ['clear', 'clearweapons', 'cleararmor', 'clearmagic', 'clearspec']
-monster_clearlabels = {'clear': 'Clear all', 'clearweapons': 'Clear weapons', 'cleararmor': 'Clear armor',
-                       'clearmagic': 'Clear magic', 'clearspec': 'Clear special abilities',
-                       'copystats': 'Copy stats from monster ID', 'copyspr': 'Copy sprite from monster ID'}
 monster_clearlist = (monster_clearparams, monster_cleartags)
 
 monster_baseatts = ['hp', 'size', 'ressize', 'prot', 'mr', 'mor', 'str', 'att', 'def', 'prec', 'enc',
-                    'mapmove', 'ap', 'eyes', 'voidsanity']
+                    'mapmove', 'ap', 'eyes']
+monster_baselist = (monster_baseatts, None)
 
 monster_pretenderatts = ['pathcost', 'startdom', 'homerealm']
+
+monster_labels = {'selectmonster': 'ID', 'newmonster': 'ID', 'name': 'Name', 'descr': 'Description', 'clear': 'Clear all',
+                  'clearweapons': 'Clear weapons', 'cleararmor': 'Clear armor', 'clearmagic': 'Clear magic',
+                  'clearspec': 'Clear special abilities', 'copystats': 'Copy stats from monster ID',
+                  'copyspr': 'Copy sprite from monster ID', 'hp': 'HP', 'size': 'Size', 'ressize': 'Resource size',
+                  'prot': 'Protection', 'mr': 'Magic resistance', 'mor': 'Morale', 'str': 'Strength', 'att': 'Attack',
+                  'def': 'Defense', 'prec': 'Precision', 'enc': 'Encumbrance', 'mapmove': 'Map movement',
+                  'ap': 'Action points', 'eyes': '# of eyes'}
 # endregion
 
 # region Weapontab
