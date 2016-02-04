@@ -74,6 +74,12 @@ def setstate(widget, state):
             setstate(child, state=state)
 
 
+def onmousewheel(target, event):
+    print(target, event)
+    target.yview_scroll(-1*(int(event.delta/120)), "units")
+
+
+
 # Mod class
 class Modentry:
 
@@ -416,6 +422,10 @@ class Mainwindow:
                                    undo=1, wrap=WORD)
         self.descboxscrollbar.config(command=self.descriptionbox.yview)
         self.pathentry = Entry(self.overviewtab, textvariable=self.loaddomfolder)
+
+        self.descriptionbox.bind('<MouseWheel>', lambda event, target=self.descriptionbox: onmousewheel(target, event))
+        self.descboxscrollbar.bind('<MouseWheel>', lambda event, target=self.descriptionbox: onmousewheel(target,
+                                                                                                          event))
 
         # ##Buttons
         self.checkicon = ImageTk.PhotoImage(checkicon)
@@ -779,6 +789,10 @@ class Entitytab(Frame):
         self.treelist.bind('<Double-1>', self.onclick)
         self.editingcanvas.bind('<Configure>', self.onframeconfigure)
         self.editingframe.bind('<Configure>', self.onframeconfigure)
+        self.treelist.bind('<MouseWheel>', lambda event, target=self.treelist: onmousewheel(target, event))
+        self.treescrollbary.bind('<MouseWheel>', lambda event, target=self.treelist: onmousewheel(target, event))
+        self.editingcanvas.bind('<MouseWheel>', lambda event, target=self.editingcanvas: onmousewheel(target, event))
+        self.editingscrollbar.bind('<MouseWheel>', lambda event, target=self.editingcanvas: onmousewheel(target, event))
 
     def modload(self, itemdict):
 
